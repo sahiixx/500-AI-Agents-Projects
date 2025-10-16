@@ -1,86 +1,68 @@
 # Test Suite for 500-AI-Agents-Projects
 
-Comprehensive validation tests for repository files, ensuring quality and consistency.
+This directory contains comprehensive tests for validating the repository's documentation, configuration, and content.
 
-## Test Files
+## Test Categories
 
-### `test_github_workflow.py`
-Tests GitHub Actions workflow configuration:
-- YAML syntax validation.
-- Required fields and structure.
-- Job definitions and dependencies.
-- Permissions and triggers.
+### Markdown Validation (`test_markdown_validation.py`)
 
-### `test_markdown_files.py`
-Tests Markdown documentation:
-- File existence and structure.
-- Proper heading hierarchy.
-- Code block formatting.
-- Content completeness.
+- Structure and formatting
+- Content quality
+- URL formatting
+- Consistency checks
+- Table structure
+- Documentation completeness
 
-### `test_license.py`
-Tests LICENSE file:
-- MIT License format validation.
-- Required clauses.
-- Copyright notice.
-- Consistency with docs.
+### YAML Validation (`test_yaml_validation.py`)
 
-### `test_images.py`
-Tests image files:
-- File existence and readability.
-- Valid formats (JPEG/PNG).
-- Reasonable dimensions.
-- Documentation references.
+- GitHub Actions workflow validation
+- YAML syntax and structure
+- Security checks
+- Configuration validation
 
-### `test_integration.py`
-Integration tests:
-- Repository structure.
-- Cross-file consistency.
-- Documentation quality.
-- Badge and emoji usage.
+### Link Validation (`test_link_validation.py`)
+
+- Link format verification
+- GitHub URL validation
+- Image reference validation
+- Internal link validation
+
+### Content Validation (`test_content_validation.py`)
+
+- License file validation
+- Repository structure
+- Content quality
+- Code examples
+- Mermaid diagrams
+- File encoding
 
 ## Running Tests
 
-### Install Dependencies
+Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Run All Tests
+Run all tests:
 ```bash
 pytest
 ```
 
-### Run Specific Test Suite
+Run specific test file:
 ```bash
-pytest tests/test_markdown_files.py -v
+pytest tests/test_markdown_validation.py
 ```
 
-### Run With Coverage
+Run with coverage:
 ```bash
 pytest --cov=. --cov-report=html
 ```
 
-### Run Specific Test
-```bash
-pytest tests/test_license.py::TestLicense::test_license_is_mit -v
-```
+## Test Philosophy
 
-## Test Coverage
+These tests focus on validation rather than behavior testing since the repository primarily contains documentation and configuration files. They ensure:
 
-The test suite covers:
-- ✅ GitHub Actions workflow configuration.
-- ✅ All Markdown documentation files.
-- ✅ LICENSE file compliance.
-- ✅ Image file validation.
-- ✅ Repository structure.
-- ✅ Documentation quality metrics.
-- ✅ Cross-file consistency.
-
-## Adding New Tests
-
-When adding new files to the repository:
-1. Add validation tests to the appropriate test file.
-2. Ensure tests check existence, validity, and integration.
-3. Run the full test suite before committing.
-4. Update this README when adding new test categories.
+1. **Quality**: Documentation is well-formed and complete
+2. **Consistency**: Formatting and structure are consistent
+3. **Validity**: Links work and configurations are correct
+4. **Completeness**: All required files and sections exist
