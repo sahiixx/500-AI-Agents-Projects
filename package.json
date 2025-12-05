@@ -22,5 +22,8 @@
     "langgraph"
   ],
   "author": "Ashish Patel",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  }
 }

@@ -1,0 +1,142 @@
+/**
+ * Example Next.js App Component with Vercel Speed Insights Integration
+ * 
+ * This file demonstrates how to properly integrate Vercel Speed Insights
+ * in a Next.js application (both App Router and Pages Router patterns).
+ * 
+ * For App Router (Next.js 13+):
+ * Save this as app.jsx or app.tsx in your src/ or root directory
+ * 
+ * For Pages Router (Next.js 12 and earlier):
+ * Save this as pages/_app.jsx or pages/_app.tsx
+ */
+
+// ============================================================================
+// NEXT.JS APP ROUTER (Next.js 13+)
+// ============================================================================
+
+'use client'
+
+import { useEffect } from 'react'
+import { injectSpeedInsights } from '@vercel/speed-insights'
+
+export default function App({ children }) {
+  useEffect(() => {
+    // Initialize Vercel Speed Insights on client side only
+    injectSpeedInsights()
+  }, [])
+
+  return (
+    <html>
+      <body>
+        {children}
+      </body>
+    </html>
+  )
+}
+
+// ============================================================================
+// NEXT.JS PAGES ROUTER (Next.js 12 and earlier)
+// ============================================================================
+
+/*
+import { useEffect } from 'react'
+import { injectSpeedInsights } from '@vercel/speed-insights'
+
+function MyApp({ Component, pageProps }) {
+  useEffect(() => {
+    // Initialize Vercel Speed Insights on client side only
+    injectSpeedInsights()
+  }, [])
+
+  return <Component {...pageProps} />
+}
+
+export default MyApp
+*/
+
+// ============================================================================
+// REACT STANDALONE
+// ============================================================================
+
+/*
+import { useEffect } from 'react'
+import { injectSpeedInsights } from '@vercel/speed-insights'
+
+function App() {
+  useEffect(() => {
+    // Initialize Vercel Speed Insights on client side only
+    injectSpeedInsights()
+  }, [])
+
+  return (
+    <div>
+      <h1>My App</h1>
+      {/* Your app content */}
+    </div>
+  )
+}
+
+export default App
+*/
+
+// ============================================================================
+// ADVANCED: CONDITIONAL INITIALIZATION
+// ============================================================================
+
+/*
+'use client'
+
+import { useEffect } from 'react'
+
+export default function App({ children }) {
+  useEffect(() => {
+    // Only initialize Speed Insights in production
+    if (process.env.NODE_ENV === 'production') {
+      const { injectSpeedInsights } = await import('@vercel/speed-insights')
+      injectSpeedInsights()
+    }
+  }, [])
+
+  return (
+    <html>
+      <body>
+        {children}
+      </body>
+    </html>
+  )
+}
+*/
+
+// ============================================================================
+// KEY POINTS
+// ============================================================================
+
+/*
+1. Import: 
+   import { injectSpeedInsights } from '@vercel/speed-insights'
+
+2. Call Location:
+   - Must run on client side (use 'use client' in Next.js 13+ or useEffect)
+   - Call as early as possible in app initialization
+   - Call only once (typically in app entry point)
+
+3. Timing:
+   - Place in a useEffect hook for React/Next.js
+   - Call at app startup for vanilla JS
+
+4. Environment:
+   - Only runs in browser environment
+   - Automatically skipped in server-side rendering
+   - Safe to call multiple times (is idempotent)
+
+5. Dependencies:
+   - Package: npm install @vercel/speed-insights
+   - No additional configuration needed
+   - Works with all JavaScript frameworks
+
+6. Dashboard:
+   - View metrics at: https://vercel.com/analytics/speed-insights
+   - Monitor Core Web Vitals in real-time
+   - Analyze performance trends
+*/
