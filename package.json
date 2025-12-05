@@ -1,0 +1,27 @@
+{
+  "name": "500-ai-agents-projects",
+  "version": "1.0.0",
+  "description": "A curated collection of AI agent use cases across industries",
+  "scripts": {
+    "build": "python3.11 -m pytest tests/ -v",
+    "test": "python3.11 -m pytest tests/ -v",
+    "test:coverage": "python3.11 -m pytest tests/ --cov --cov-report=html",
+    "lint": "python3.11 -m pylint **/*.py || true",
+    "install:deps": "python3.11 -m pip install -r requirements.txt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ashishpatel26/500-AI-Agents-Projects"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "crewai",
+    "autogen",
+    "langgraph",
+    "machine-learning",
+    "automation"
+  ],
+  "author": "Ashish Patel",
+  "license": "MIT"
+}
