@@ -1,0 +1,19 @@
+pytest==7.4.3
+pytest-cov==4.1.0
+pyyaml==6.0.1
+requests==2.31.0
+
+# Web Scraping
+beautifulsoup4==4.12.3
+
+# Data Processing
+pandas==2.2.1
+numpy==1.26.4
+
+# Environment Management
+python-dotenv==1.0.1
+
+# Utilities
+phonenumbers==8.13.31
+email-validator==2.1.1
+python-dateutil==2.9.0
