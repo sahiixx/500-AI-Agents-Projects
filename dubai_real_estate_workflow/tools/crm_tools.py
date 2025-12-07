@@ -6,7 +6,7 @@ import os
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
-from crewai_tools import BaseTool
+from .base_tool import BaseTool
 import json
 
 logger = logging.getLogger(__name__)

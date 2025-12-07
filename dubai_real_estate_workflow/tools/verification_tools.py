@@ -6,7 +6,7 @@ import os
 import logging
 import re
 from typing import Dict, Any, Optional
-from crewai_tools import BaseTool
+from .base_tool import BaseTool
 import requests
 import phonenumbers
 from email_validator import validate_email, EmailNotValidError

@@ -6,7 +6,7 @@ import os
 import time
 import logging
 from typing import List, Dict, Any
-from crewai_tools import BaseTool
+from .base_tool import BaseTool
 import requests
 from bs4 import BeautifulSoup
 import json
