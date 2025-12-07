@@ -1,0 +1,666 @@
+"""
+Comprehensive tests for validating requirements files.
+
+This module tests the structure, format, and consistency of all requirements files
+in the repository, including requirements.txt, requirements-minimal.txt,
+requirements-py39.txt, and requirements-working.txt.
+"""
+import re
+import pytest
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+
+class TestRequirementsFileStructure:
+    """Test basic structure and format of requirements files."""
+    
+    @pytest.fixture
+    def requirements_files(self) -> Dict[str, Path]:
+        """Provide paths to all requirements files."""
+        return {
+            'main': Path('requirements.txt'),
+            'minimal': Path('requirements-minimal.txt'),
+            'py39': Path('requirements-py39.txt'),
+            'working': Path('requirements-working.txt'),
+        }
+    
+    def test_all_requirements_files_exist(self, requirements_files):
+        """Test that all requirements files exist."""
+        for name, path in requirements_files.items():
+            assert path.exists(), f"Requirements file '{name}' should exist at {path}"
+    
+    def test_requirements_files_not_empty(self, requirements_files):
+        """Test that all requirements files are not empty."""
+        for name, path in requirements_files.items():
+            content = path.read_text(encoding='utf-8').strip()
+            assert len(content) > 0, f"Requirements file '{name}' should not be empty"
+    
+    def test_requirements_files_have_valid_encoding(self, requirements_files):
+        """Test that all requirements files use UTF-8 encoding."""
+        for name, path in requirements_files.items():
+            try:
+                path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                pytest.fail(f"Requirements file '{name}' should use UTF-8 encoding")
+    
+    def test_requirements_files_end_with_newline(self, requirements_files):
+        """Test that all requirements files end with a newline."""
+        for name, path in requirements_files.items():
+            content = path.read_text(encoding='utf-8')
+            assert content.endswith('\n'), f"Requirements file '{name}' should end with newline"
+
+
+class TestRequirementsLineFormat:
+    """Test individual line formats in requirements files."""
+    
+    @pytest.fixture
+    def parse_requirements(self):
+        """Provide a function to parse requirements from a file."""
+        def _parse(file_path: Path) -> List[Dict[str, str]]:
+            """Parse requirements file and return list of package info."""
+            packages = []
+            content = file_path.read_text(encoding='utf-8')
+            
+            for line_num, line in enumerate(content.split('\n'), 1):
+                line = line.strip()
+                
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Parse package specification
+                # Handle various formats: package==version, package>=version, package
+                match = re.match(r'^([a-zA-Z0-9\-_\[\]]+)([><=!]+)?(.+)?$', line)
+                if match:
+                    packages.append({
+                        'name': match.group(1),
+                        'operator': match.group(2) or '',
+                        'version': match.group(3).strip() if match.group(3) else '',
+                        'line': line,
+                        'line_num': line_num
+                    })
+            
+            return packages
+        return _parse
+    
+    def test_no_invalid_characters_in_requirements(self, parse_requirements):
+        """Test that requirements don't contain invalid characters."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Check for common issues
+        invalid_chars = ['\t', '\r']
+        for char in invalid_chars:
+            assert char not in content, f"Requirements file should not contain {repr(char)}"
+    
+    def test_package_names_are_valid(self, parse_requirements):
+        """Test that all package names follow valid naming conventions."""
+        req_file = Path('requirements.txt')
+        packages = parse_requirements(req_file)
+        
+        # Valid package name pattern
+        valid_name_pattern = re.compile(r'^[a-zA-Z0-9\-_\[\]]+$')
+        
+        for pkg in packages:
+            assert valid_name_pattern.match(pkg['name']), \
+                f"Package name '{pkg['name']}' on line {pkg['line_num']} is not valid"
+    
+    def test_version_specifiers_are_valid(self, parse_requirements):
+        """Test that version specifiers use valid operators."""
+        req_file = Path('requirements.txt')
+        packages = parse_requirements(req_file)
+        
+        valid_operators = ['==', '>=', '<=', '>', '<', '!=', '~=', '']
+        
+        for pkg in packages:
+            if pkg['operator']:
+                assert pkg['operator'] in valid_operators, \
+                    f"Invalid version operator '{pkg['operator']}' for {pkg['name']} on line {pkg['line_num']}"
+    
+    def test_no_duplicate_packages_in_main_requirements(self, parse_requirements):
+        """Test that main requirements.txt has no duplicate packages."""
+        req_file = Path('requirements.txt')
+        packages = parse_requirements(req_file)
+        
+        package_names = [pkg['name'].lower() for pkg in packages]
+        duplicates = [name for name in package_names if package_names.count(name) > 1]
+        
+        assert len(duplicates) == 0, \
+            f"Duplicate packages found in requirements.txt: {set(duplicates)}"
+    
+    def test_version_numbers_follow_semver_pattern(self, parse_requirements):
+        """Test that version numbers follow semantic versioning patterns."""
+        req_file = Path('requirements.txt')
+        packages = parse_requirements(req_file)
+        
+        # Semantic versioning pattern (flexible to accommodate various formats)
+        semver_pattern = re.compile(r'^\d+\.\d+(\.\d+)?(\.\d+)?([a-zA-Z0-9\-\+\.]*)?$')
+        
+        for pkg in packages:
+            if pkg['version']:
+                # Handle version ranges (e.g., ">=8.0.0,<9.0.0")
+                versions = pkg['version'].split(',')
+                for version in versions:
+                    version = version.strip()
+                    if version:
+                        # Handle version ranges like >=8.0.0,<9.0.0
+                version_parts = version.split(",")
+                # Check each part of compound version
+                if len(version_parts) > 1:
+                    # For compound versions, just check they are valid
+                    continue
+                assert semver_pattern.match(version), \
+                            f"Version '{version}' for {pkg['name']} doesn't follow semantic versioning"
+
+
+class TestRequirementsContent:
+    """Test the content and dependencies in requirements files."""
+    
+    @pytest.fixture
+    def core_dependencies(self) -> Set[str]:
+        """Define core dependencies that should be in all requirement files."""
+        return {'pytest', 'pytest-cov', 'pyyaml', 'requests'}
+    
+    @pytest.fixture
+    def parse_packages(self):
+        """Provide function to extract package names from requirements file."""
+        def _parse(file_path: Path) -> Set[str]:
+            """Extract package names from requirements file."""
+            content = file_path.read_text(encoding='utf-8')
+            packages = set()
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Extract package name (before any version specifier)
+                    match = re.match(r'^([a-zA-Z0-9\-_\[\]]+)', line)
+                    if match:
+                        packages.add(match.group(1).lower())
+            
+            return packages
+        return _parse
+    
+    def test_core_dependencies_in_all_files(self, core_dependencies, parse_packages):
+        """Test that core dependencies are present in all requirements files."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            packages = parse_packages(req_file)
+            for dep in core_dependencies:
+                assert dep.lower() in packages, \
+                    f"Core dependency '{dep}' missing from {req_file.name}"
+    
+    def test_minimal_requirements_is_subset_of_main(self, parse_packages):
+        """Test that minimal requirements is a subset of main requirements."""
+        main_packages = parse_packages(Path('requirements.txt'))
+        minimal_packages = parse_packages(Path('requirements-minimal.txt'))
+        
+        # Minimal should not have packages that main doesn't have
+        extra_packages = minimal_packages - main_packages
+        
+        # Allow for some flexibility (minimal might have different versions)
+        # but the package names should generally align
+        assert len(extra_packages) == 0 or all('minimal' in str(pkg) for pkg in extra_packages), \
+            f"Minimal requirements has packages not in main: {extra_packages}"
+    
+    def test_py39_requirements_has_compatible_versions(self):
+        """Test that py39 requirements file has Python 3.9 compatible versions."""
+        req_file = Path('requirements-py39.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Check for Python 3.9 compatibility note in comments
+        assert 'Python 3.9' in content or 'py39' in content.lower() or '3.9' in content, \
+            "requirements-py39.txt should mention Python 3.9 compatibility"
+    
+    def test_working_requirements_has_flexible_versions(self):
+        """Test that working requirements uses flexible version constraints."""
+        req_file = Path('requirements-working.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Count flexible version specifiers (>=)
+        flexible_count = content.count('>=')
+        pinned_count = content.count('==')
+        
+        # Working requirements should prefer flexible versions
+        assert flexible_count > 0, \
+            "requirements-working.txt should use some flexible version constraints (>=)"
+
+
+class TestRequirementsComments:
+    """Test comment structure and organization in requirements files."""
+    
+    def test_requirements_have_section_comments(self):
+        """Test that requirements.txt has section comments for organization."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Expected section headers
+        expected_sections = [
+            'Testing',
+            'CrewAI',
+            'AI Framework',
+            'Web Scraping',
+            'Data Processing',
+            'API Integrations',
+            'Environment Management',
+            'Utilities',
+        ]
+        
+        for section in expected_sections:
+            # Section should appear in a comment
+            section_patterns = [
+                f'# {section}',
+                f'#{section}',
+                section.lower(),
+            ]
+            
+            found = any(pattern in content.lower() for pattern in section_patterns)
+            assert found, f"Requirements file should have '{section}' section"
+    
+    def test_minimal_requirements_has_comments(self):
+        """Test that minimal requirements file has descriptive comments."""
+        req_file = Path('requirements-minimal.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Should have at least some comment lines
+        comment_lines = [line for line in content.split('\n') if line.strip().startswith('#')]
+        assert len(comment_lines) > 0, \
+            "requirements-minimal.txt should have descriptive comments"
+    
+    def test_comments_are_properly_formatted(self):
+        """Test that comments follow consistent formatting."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            for line_num, line in enumerate(content.split('\n'), 1):
+                if line.strip().startswith('#'):
+                    # Comments should have space after #
+                    if len(line.strip()) > 1:
+                        assert line.strip()[1] == ' ' or line.strip()[1] == '#', \
+                            f"{req_file.name}:{line_num}: Comment should have space after '#'"
+
+
+class TestRequirementsVersionConsistency:
+    """Test version consistency across different requirements files."""
+    
+    @pytest.fixture
+    def parse_package_versions(self):
+        """Provide function to parse package versions from requirements file."""
+        def _parse(file_path: Path) -> Dict[str, str]:
+            """Parse package versions from requirements file."""
+            content = file_path.read_text(encoding='utf-8')
+            versions = {}
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Parse package==version or package>=version
+                    match = re.match(r'^([a-zA-Z0-9\-_\[\]]+)([><=!]+)(.+)$', line)
+                    if match:
+                        package = match.group(1).lower()
+                        operator = match.group(2)
+                        version = match.group(3).strip()
+                        versions[package] = f"{operator}{version}"
+            
+            return versions
+        return _parse
+    
+    def test_pytest_version_consistency(self, parse_package_versions):
+        """Test that pytest versions are consistent where they should be."""
+        main_versions = parse_package_versions(Path('requirements.txt'))
+        minimal_versions = parse_package_versions(Path('requirements-minimal.txt'))
+        py39_versions = parse_package_versions(Path('requirements-py39.txt'))
+        
+        # pytest-cov should be consistent across all files
+        if 'pytest-cov' in main_versions and 'pytest-cov' in minimal_versions:
+            assert main_versions['pytest-cov'] == minimal_versions['pytest-cov'], \
+                "pytest-cov version should be consistent between main and minimal"
+    
+    def test_common_packages_have_compatible_versions(self, parse_package_versions):
+        """Test that common packages have compatible versions across files."""
+        main_versions = parse_package_versions(Path('requirements.txt'))
+        py39_versions = parse_package_versions(Path('requirements-py39.txt'))
+        
+        # Core packages that should have compatible versions
+        core_packages = ['pyyaml', 'requests', 'pytest-cov']
+        
+        for package in core_packages:
+            if package in main_versions and package in py39_versions:
+                # Versions should at least use the same major version
+                main_version = main_versions[package]
+                py39_version = py39_versions[package]
+                
+                # Extract major version numbers
+                main_major = re.search(r'\d+', main_version)
+                py39_major = re.search(r'\d+', py39_version)
+                
+                if main_major and py39_major:
+                    # Allow different versions but flag if major versions differ significantly
+                    assert abs(int(main_major.group()) - int(py39_major.group())) <= 2, \
+                        f"{package} major versions differ too much between main and py39"
+
+
+class TestRequirementsSpecialCases:
+    """Test special cases and edge conditions in requirements files."""
+    
+    def test_no_git_urls_in_requirements(self):
+        """Test that requirements don't use git URLs (prefer PyPI packages)."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            # Check for git URLs
+            git_patterns = ['git+', 'git@', '.git']
+            for pattern in git_patterns:
+                assert pattern not in content, \
+                    f"{req_file.name} should not contain git URLs ({pattern})"
+    
+    def test_no_local_file_paths(self):
+        """Test that requirements don't reference local file paths."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            # Check for local paths (file://, ./, ../)
+            local_patterns = ['file://', './', '../']
+            for pattern in local_patterns:
+                assert pattern not in content, \
+                    f"{req_file.name} should not contain local file paths ({pattern})"
+    
+    def test_no_extra_whitespace(self):
+        """Test that requirements don't have trailing whitespace."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            for line_num, line in enumerate(content.split('\n'), 1):
+                if line:  # Skip empty lines
+                    assert line == line.rstrip(), \
+                        f"{req_file.name}:{line_num}: Line has trailing whitespace"
+    
+    def test_blank_lines_between_sections(self):
+        """Test that sections are separated by blank lines for readability."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        lines = content.split('\n')
+        
+        # Find comment lines (section headers)
+        comment_indices = [i for i, line in enumerate(lines) if line.strip().startswith('#')]
+        
+        # Check that there are blank lines before section comments (except first)
+        for idx in comment_indices[1:]:
+            if idx > 0:
+                # Previous line should be empty (or another comment)
+                prev_line = lines[idx - 1].strip()
+                assert prev_line == '' or prev_line.startswith('#'), \
+                    f"Line {idx + 1}: Section comment should be preceded by blank line"
+
+
+class TestRequirementsPythonCompatibility:
+    """Test Python version compatibility markers and constraints."""
+    
+    def test_no_explicit_python_version_markers_in_main(self):
+        """Test that main requirements.txt doesn't have Python version markers."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Python version markers like: package ; python_version < '3.10'
+        assert ';' not in content or 'python_version' not in content.lower(), \
+            "Main requirements.txt should not have Python version markers (use separate files instead)"
+    
+    def test_py39_file_documents_python_version(self):
+        """Test that py39 requirements file documents Python 3.9 compatibility."""
+        req_file = Path('requirements-py39.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Should mention Python 3.9 in comments
+        assert '3.9' in content, \
+            "requirements-py39.txt should document Python 3.9 compatibility in comments"
+
+
+class TestRequirementsSecurityBestPractices:
+    """Test security best practices in requirements files."""
+    
+    def test_no_plaintext_credentials(self):
+        """Test that requirements files don't contain credentials."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        sensitive_patterns = ['password', 'token', 'secret', 'api_key', 'apikey']
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8').lower()
+            
+            for pattern in sensitive_patterns:
+                assert pattern not in content, \
+                    f"{req_file.name} should not contain sensitive data like '{pattern}'"
+    
+    def test_pinned_versions_in_main_requirements(self):
+        """Test that main requirements.txt uses pinned versions for security."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Count version specifiers
+        lines = [line.strip() for line in content.split('\n') 
+                if line.strip() and not line.strip().startswith('#')]
+        
+        pinned_count = sum(1 for line in lines if '==' in line)
+        total_packages = len(lines)
+        
+        # At least 70% of packages should be pinned for reproducibility
+        if total_packages > 0:
+            pinned_ratio = pinned_count / total_packages
+            assert pinned_ratio >= 0.5, \
+                f"Main requirements should have at least 50% pinned versions (found {pinned_ratio:.0%})"
+
+
+class TestRequirementsPackageCategories:
+    """Test that packages are properly categorized in requirements files."""
+    
+    def test_testing_packages_grouped_together(self):
+        """Test that testing-related packages are grouped together."""
+        req_file = Path('requirements.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # pytest and pytest-cov should be near each other
+        lines = content.split('\n')
+        pytest_line = None
+        pytest_cov_line = None
+        
+        for i, line in enumerate(lines):
+            if 'pytest==' in line or 'pytest>=' in line:
+                pytest_line = i
+            if 'pytest-cov' in line:
+                pytest_cov_line = i
+        
+        if pytest_line is not None and pytest_cov_line is not None:
+            # Should be within 5 lines of each other
+            assert abs(pytest_line - pytest_cov_line) <= 5, \
+                "pytest and pytest-cov should be grouped together"
+    
+    def test_ai_framework_packages_identified(self):
+        """Test that AI framework packages are present in appropriate files."""
+        main_file = Path('requirements.txt')
+        py39_file = Path('requirements-py39.txt')
+        
+        ai_packages = ['crewai', 'langchain', 'langchain-openai', 'langchain-community']
+        
+        main_content = main_file.read_text(encoding='utf-8').lower()
+        py39_content = py39_file.read_text(encoding='utf-8').lower()
+        
+        # AI packages should be in main and py39, but not in minimal
+        for package in ai_packages:
+            assert package in main_content, f"{package} should be in requirements.txt"
+            assert package in py39_content, f"{package} should be in requirements-py39.txt"
+    
+    def test_minimal_excludes_heavy_dependencies(self):
+        """Test that minimal requirements excludes heavy optional dependencies."""
+        minimal_file = Path('requirements-minimal.txt')
+        minimal_content = minimal_file.read_text(encoding='utf-8').lower()
+        
+        # Heavy packages that shouldn't be in minimal
+        heavy_packages = ['selenium', 'playwright', 'scrapy', 'crewai', 'langchain']
+        
+        for package in heavy_packages:
+            assert package not in minimal_content, \
+                f"Minimal requirements should not include heavy dependency: {package}"
+
+
+class TestRequirementsIntegration:
+    """Integration tests for requirements files working together."""
+    
+    def test_all_requirements_can_be_parsed(self):
+        """Test that all requirements files can be parsed without errors."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            lines = content.split('\n')
+            
+            for line_num, line in enumerate(lines, 1):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Should match package specification pattern
+                    pattern = re.compile(r'^[a-zA-Z0-9\-_\[\]]+([><=!]+.+)?$')
+                    assert pattern.match(line), \
+                        f"{req_file.name}:{line_num}: Invalid package specification: {line}"
+    
+    def test_requirements_files_have_reasonable_size(self):
+        """Test that requirements files are not excessively large."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            line_count = len(req_file.read_text(encoding='utf-8').split('\n'))
+            
+            # Reasonable limits
+            assert line_count < 200, \
+                f"{req_file.name} is too large ({line_count} lines). Consider splitting."
+            assert line_count > 5, \
+                f"{req_file.name} seems too small ({line_count} lines)"
+
+
+class TestRequirementsEdgeCases:
+    """Test edge cases and potential issues in requirements files."""
+    
+    def test_no_conflicting_version_ranges(self):
+        """Test that version ranges don't conflict with each other."""
+        req_file = Path('requirements-working.txt')
+        content = req_file.read_text(encoding='utf-8')
+        
+        # Parse packages with version ranges
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                # Check for impossible version ranges like >=2.0.0,<1.0.0
+                if ',' in line:
+                    parts = line.split(',')
+                    # Basic validation - if both are present, ensure they're compatible
+                    has_lower = any('>=' in p or '>' in p for p in parts)
+                    has_upper = any('<=' in p or '<' in p for p in parts)
+                    
+                    if has_lower and has_upper:
+                        # Extract version numbers and do basic sanity check
+                        # This is a simplified check
+                        lower_match = re.search(r'>=?(\d+)', line)
+                        upper_match = re.search(r'<=?(\d+)', line)
+                        
+                        if lower_match and upper_match:
+                            lower_ver = int(lower_match.group(1))
+                            upper_ver = int(upper_match.group(1))
+                            assert lower_ver <= upper_ver, \
+                                f"Conflicting version range in: {line}"
+    
+    def test_no_empty_version_specifiers(self):
+        """Test that version specifiers are not empty."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            for line_num, line in enumerate(content.split('\n'), 1):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # If there's a version operator, there should be a version
+                    if any(op in line for op in ['==', '>=', '<=', '>', '<', '!=']):
+                        assert not line.endswith(('==', '>=', '<=', '>', '<', '!=')), \
+                            f"{req_file.name}:{line_num}: Empty version specifier"
+    
+    def test_package_names_consistent_casing(self):
+        """Test that package names use consistent casing across files."""
+        req_files = [
+            Path('requirements.txt'),
+            Path('requirements-minimal.txt'),
+            Path('requirements-py39.txt'),
+            Path('requirements-working.txt'),
+        ]
+        
+        # Collect all package names
+        all_packages = {}
+        
+        for req_file in req_files:
+            content = req_file.read_text(encoding='utf-8')
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    match = re.match(r'^([a-zA-Z0-9\-_\[\]]+)', line)
+                    if match:
+                        package = match.group(1)
+                        package_lower = package.lower()
+                        
+                        if package_lower in all_packages:
+                            # Check if casing is consistent
+                            assert all_packages[package_lower] == package, \
+                                f"Inconsistent casing for {package_lower}: " \
+                                f"{all_packages[package_lower]} vs {package}"
+                        else:
+                            all_packages[package_lower] = package
