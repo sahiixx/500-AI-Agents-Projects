@@ -18,6 +18,7 @@ A curated collection of AI agent use cases across industries, showcasing practic
   - [AutoGen UseCase](#framework-name-autogen)
   - [Agno UseCase](#framework-name-agno)
   - [Langgraph UseCase](#framework-name-langgraph)
+- [Deployment & Analytics](#-deployment--analytics)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -300,6 +301,33 @@ Whether you're a developer, researcher, or business enthusiast, this repository 
 
 
 
+
+---
+
+## 📊 Deployment & Analytics
+
+When deploying your AI agent applications to production, you may want to monitor their performance and user experience. We've included comprehensive documentation for integrating Vercel Speed Insights to help you track and optimize your web-based AI agent interfaces.
+
+### Vercel Speed Insights Integration
+
+For projects that include web interfaces for AI agents, you can use Vercel Speed Insights to monitor real-world performance metrics. This is especially useful for:
+
+- Monitoring the performance of AI agent chat interfaces
+- Tracking user interaction speeds with agent-powered applications
+- Optimizing the delivery of AI-generated content
+- Ensuring fast response times for real-time agent interactions
+
+📖 **[View the complete Vercel Speed Insights integration guide](docs/VERCEL_SPEED_INSIGHTS.md)**
+
+The guide includes step-by-step instructions for:
+- Next.js (Pages Router and App Router)
+- React (Create React App)
+- Remix
+- SvelteKit
+- Vue.js and Nuxt
+- Astro
+- Plain HTML
+- Other frameworks
 
 ---
 
